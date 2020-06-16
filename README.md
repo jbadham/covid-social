@@ -1,5 +1,4 @@
-# covid-social
-Model code and documentation for the Social Interventions COVID-19 agent-based model
+# Model code and documentation for the Social Interventions COVID-19 agent-based model
 
 The model is built in NetLogo, specialist simulation software. You will need to install NetLogo, version 6.1 or later, which is available as a free download from https://ccl.northwestern.edu/netlogo/. Open the model file (Social COVID-19s.nlogo) in NetLogo to access the main user interface.
 
