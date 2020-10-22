@@ -1,0 +1,36 @@
+; two scenarios included in article 1: presenting the model
+
+; 'now' scenario - at 13 July 2020
+to do-atJul13
+  if ticks = 0
+  [ set distancing-option "AllPeople"
+    set distancing-reduction 0.5
+    set intervention-duration 52     ; to continue triggered? as true
+    set high-risk-shielding? true
+    set HR-shield-duration 15
+  ]
+  if when-triggered != "no" and ticks = when-triggered + 6 * 7
+  [ set trigger-type "interactive"
+    set distancing-reduction 0.45
+    apply-distancing-policy
+    set isolate-inform? true
+    set mild-asymptomatic 0.45
+    set self-isolators 0.5
+    set informers 0.9
+    set found-and-isolate 0.2
+  ]
+  if when-triggered != "no" and ticks = when-triggered + 12 * 7
+  [ set distancing-reduction 0.35
+    apply-distancing-policy
+    set self-isolators 0.5
+    set informers 0.9
+    set found-and-isolate 0.5
+  ]
+  if when-triggered != "no" and ticks = when-triggered + 103
+  [ set distancing-reduction 0.25
+    apply-distancing-policy
+  ]
+  if when-triggered != "no" and ticks = when-triggered + 110
+  [ set found-and-isolate one-of [0.4 0.6]
+  ]
+end

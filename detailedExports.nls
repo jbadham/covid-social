@@ -1,0 +1,36 @@
+; exports all the locations and epidemic status information
+; not used in normal operation, pause and call directly
+to export-agent-info
+  if file-exists? "agent info.csv" [ file-delete "agent info.csv" ]
+  file-open "agent info.csv"
+  file-print "ID, Xpos, Ypos, status, next, high-risk, isolating"
+  ask turtles
+  [ file-type who file-type ","
+    file-type xcor file-type ", "
+    file-type ycor file-type ", "
+    file-type epi-status file-type ", "
+    file-type next-status file-type ", "
+    file-type high-risk? file-type ", "
+    file-print in-isolation?
+  ]
+  file-close
+end
+
+; exports counts by state on each patch
+; not used in normal operation, pause and call directly
+to export-patch-info
+  if file-exists? "patch info.csv" [ file-delete "patch info.csv" ]
+  file-open "patch info.csv"
+  file-print "X, Y, people, susceptible, exposed, infectious_IHC, immune, dead"
+  ask patches
+  [ file-type pxcor file-type ", "
+    file-type pycor file-type ", "
+    file-type count people-here file-type ", "
+    file-type count people-here with [epi-status = "susceptible"] file-type ", "
+    file-type count people-here with [epi-status = "exposed"] file-type ", "
+    file-type count people-here with [epi-status = "infectious" or epi-status = "hospital" or epi-status = "critical"] file-type ", "
+    file-type count people-here with [epi-status = "immune"] file-type ", "
+    file-print count people-here with [epi-status = "dead"]
+  ]
+  file-close
+end

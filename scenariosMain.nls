@@ -1,0 +1,182 @@
+; contains the procedures for predefined scenarios
+
+; resets scenario to no action
+to interventions-off
+  set blocked-bed-effect? false
+  set distancing-option "None"
+  set move-reduction-short 0
+  set move-reduction-long 0
+  set high-risk-shielding? false
+  set isolate-inform? false
+  set self-isolators 0
+  set informers 0
+end
+
+; allows scenario to start based on epidemic situation
+to scenario-trigger
+  (ifelse
+    ; UK cases trigger is 200 no longer susceptible
+    ; above the median cases derived from admissions at 23 March
+    region-selector = "UK cases"
+    [ set triggered? false
+      set when-triggered "no"
+      set trigger-type "cases"
+      set trigger-level 200
+    ]
+    ; 3/4 of UK average cases may be more appropriate for regional areas
+    region-selector = "75% UK cases"
+    [ set triggered? false
+      set when-triggered "no"
+      set trigger-type "cases"
+      set trigger-level 150
+    ]
+    ; higher than average may be more appropriate for hotspot areas
+    region-selector = "150% UK cases"
+    [ set triggered? false
+      set when-triggered "no"
+      set trigger-type "cases"
+      set trigger-level 300
+    ]
+    ; UK trigger is 4 hospital admissions
+    region-selector = "UK admissions"
+    [ set triggered? false
+      set when-triggered "no"
+      set trigger-type "hospital"
+      set trigger-level 4
+    ]
+   ; London area trigger is set very high, 9.5 hospital admissions
+    region-selector = "London admissions"
+    [ set triggered? false
+      set when-triggered "no"
+      set trigger-type "hospital"
+      set trigger-level 9
+    ]
+    [ type "ERROR: unidentified region:" print region-selector
+      stop
+    ]
+  )
+end
+
+; connects scenario name in chooser to relevant procedure
+to revise-scenario
+  ; cancel all non-scenario social policy settings
+  if ticks = 0 [ interventions-off ]
+  ; localise the scenario
+  if ticks = 0 and region-selector != "off" [ scenario-trigger ]
+
+  ; scenarios controlled by changing parameters at specified days
+  (ifelse
+    ; in scenariosMain source file     
+    scenario-selector = "unmitigated" [do-nothing]               ; no intervention, for baseline comparison
+    scenario-selector = "9w45" [do-9w45]                         ; 9 weeks at 45% then easing
+    scenario-selector = "9w45shield" [do-9w45shield]             ; 9 weeks at 45% then easing + shielding for 13 weeks
+    scenario-selector = "SelfQuarantine" [do-SelfQuarantine]     ; from trigger, 50% self-isolate on symptoms
+    scenario-selector = "InformOnly" [do-InformOnly]             ; from trigger, 50% inform contacts on symptoms
+    scenario-selector = "9w45sqInform" [do-9w45sqInform]         ; 9 weeks at 45% then easing but self-quarantine and inform contacts
+    ; in scenariosLRF source file
+    ; scenarios in paper 1
+    scenario-selector = "atJul13" [do-atJul13]
+    ; adhoc working file
+    scenario-selector = "adhoc" [do-adhoc]
+    ; scenario on chooser not available
+    [ type "ERROR: unidentified scenario:" print scenario-selector
+      stop
+    ]
+  )
+end
+
+;--------------------------------------
+; SCENARIO implementation
+;--------------------------------------
+
+; no intervention, for baseline comparison
+to do-nothing
+end
+
+; 9 weeks at 45% then easing to 35%, 20%
+to do-9w45
+  if ticks = 0
+  [ set distancing-option "AllPeople"
+    set distancing-reduction 0.45
+    set intervention-duration 52     ; to continue triggered? as true
+  ]
+  if when-triggered != "no" and ticks = when-triggered + 7 * 9
+  [ set trigger-type "interactive"
+    set distancing-reduction 0.35
+    apply-distancing-policy
+  ]
+  if when-triggered != "no" and ticks = when-triggered + 7 * 11
+  [ set distancing-reduction 0.20
+    apply-distancing-policy
+  ]
+end
+
+; 9 weeks at 45% then easing + shielding for 13 weeks
+to do-9w45shield
+  if ticks = 0
+  [ set distancing-option "AllPeople"
+    set distancing-reduction 0.45
+    set intervention-duration 52     ; to continue triggered? as true
+    set high-risk-shielding? true
+    set HR-shield-duration 13
+  ]
+  if when-triggered != "no" and ticks = when-triggered + 7 * 9
+  [ set trigger-type "interactive"
+    set distancing-reduction 0.35
+    apply-distancing-policy
+  ]
+  if when-triggered != "no" and ticks = when-triggered + 7 * 11
+  [ set distancing-reduction 0.20
+    apply-distancing-policy
+  ]
+end
+
+; from trigger, 50% self-isolate on symptoms
+to do-SelfQuarantine
+  if when-triggered != "no" and ticks = when-triggered
+  [ set mild-asymptomatic 0.5
+    set isolate-inform? true
+    set self-isolators 0.5
+    set SI-isolation-duration 14
+    set isolation-efficacy 0.9
+  ]
+end
+
+; from trigger, 50% inform contacts on symptoms
+to do-InformOnly
+  if when-triggered != "no" and ticks = when-triggered
+  [ set mild-asymptomatic 0.5
+    set isolate-inform? true
+    set informers 0.35
+    set found-and-isolate 0.2
+    set IC-isolation-duration 14
+    set isolation-efficacy 0.9
+  ]
+end
+
+; 9 weeks at 45% then easing but self-quarantine and inform contacts
+to do-9w45sqInform
+  if ticks = 0
+  [ set distancing-option "AllPeople"
+    set distancing-reduction 0.45
+    set intervention-duration 52     ; to continue triggered? as true
+  ]
+  if when-triggered != "no" and ticks = when-triggered + 7 * 9
+  [ set trigger-type "interactive"
+    set distancing-reduction 0.35
+    apply-distancing-policy
+    set isolate-inform? true
+    set mild-asymptomatic 0.5
+    set self-isolators 0.5
+    set SI-isolation-duration 14
+    set informers 0.35
+    set found-and-isolate 0.2
+    set IC-isolation-duration 14
+    set isolation-efficacy 0.9
+  ]
+  if when-triggered != "no" and ticks = when-triggered + 7 * 11
+  [ set distancing-reduction 0.20
+    apply-distancing-policy
+  ]
+end
+
