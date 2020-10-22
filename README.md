@@ -1,4 +1,4 @@
-# Social Interventions COVID-19 agent-based model
+# JuSt-Social COVID-19 agent-based model
 
 This repository contains the model code and documentation for the JuSt-Social COVID-19 social interventions agent-based model, which is built in the specialist simulation software **NetLogo**. You will need to install NetLogo, version 6.1 or later, which is available as a free download from https://ccl.northwestern.edu/netlogo/. Open the model file (JuSt-Social.nlogo) in NetLogo to access the main user interface.
 
