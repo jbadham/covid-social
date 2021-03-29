@@ -1,15 +1,17 @@
 ; The name of this model is JuSt-Social (note: v1 was named "Social Interventions COVID-19 ABM")
-; Copyright (c) 2020 Jennifer Badham
+; Copyright (c) 2020, 2021 Jennifer Badham
 ; It is released under the open source GNU General Public License version 3
+
 ; See the Info tab for an overview of the model and more detail about how it can be used.
-; A detailed user manual with technical reference is also available.
+; A detailed user manual with technical reference is also available (for v1.1).
+; Version 1.2 (current at March 2021) adds vaccination status with separate efficacy for exposure and transmission once vaccinated
 
 ; scenarios and adhoc analysis exports are in separate files
 __includes
 [ ; procedures for adhoc analysis
   "detailedExports.nls"    ; export patch or agent attributes (icnompatible with NetLogo Web)
   ; manages scenario routine. note that ALL scenarios must be named in interface chooser
-  "scenariosMain.nls"      ; intervention triggers and demo scenarios
+  "scenariosMain.nls"      ; intervention triggers and links to scenarios
   ; specific scenarios
 ;  "scenariosLRF.nls"       ; scenarios developed for LRF reports
   "scenariosAdhoc.nls"     ; single scenario for testing, move to another script (and update chooser, scenariosMain) when satisfactory
@@ -60,6 +62,7 @@ people-own
   in-isolation?   ; whether currently in isolation
   isolation-end   ; tick at which isolation is to end
   informer?       ; whether informing contacts
+  vaccinated?     ; whether vaccinated
   ; for reporting
   when-exposed    ; tick at which became exposed
   epi-duration    ; n ticks from exposure to immunity
@@ -157,6 +160,9 @@ to transmit-infection
       let prob-infect transmission-parameter
       ; adjust for age homophily
       if use-age-mixing? [ set prob-infect prob-infect * contact-age-homophily myself self ]
+      ; adjust for vaccination status
+      if vaccinated? [ set prob-infect prob-infect * (1 - vaccine-efficacy-S) ] ; reduce if susceptible person vaccinated
+      if [vaccinated?] of myself [ set prob-infect prob-infect * (1 - vaccine-efficacy-I) ] ; reduce if infectious person vaccinated
       ; reduce transmission probability for social distancing
       if triggered?
       [ set prob-infect prob-infect * prop-contact * [prop-contact] of myself
@@ -516,6 +522,7 @@ to setup-people
   ask patches
   [ sprout-people pp-patch
     [ set epi-status "susceptible"
+      set vaccinated? false
       ; visualisation
       set color blue + 1
       set size 0.5
@@ -550,13 +557,13 @@ end
 ; -------------------------------------------
 
 to apply-defaults
-  set transmission-parameter 0.03
+  set transmission-parameter 0.04        ; updated in Nov to balance hospitalisation reduction
   set prop-move-short 0.4
   set prop-move-long 0.15
-  set prob-InfHosp 0.07 ; Average suggested by ONS infection surveys and lagged admissions
-  set prob-InfDeath 0.015 ; derived from deaths in hospital is 65% of covid-attributed deaths, 7.0% admitted
-  set prob-HospCrit 0.17 ; ISARIC study in UK
-  set prob-HospDeath 0.30 ; ISARIC study in UK
+  set prob-InfHosp 0.05 ; Reduced in Nov to increase prevalence but maintain admissions
+  set prob-InfDeath 0.0085 ; derived from deaths in hospital is 63.2% of covid-attributed deaths, 5.0% admitted
+  set prob-HospCrit 0.09 ; ISARIC study in UK (revised Nov 2020)
+  set prob-HospDeath 0.28 ; PHE site, revised Nov 2020
   set prob-CritDeath 0.43 ; ICNARC report 29 May 2020 (Table 9)
   set immune-mild 1
   set immune-severe 1
@@ -653,6 +660,18 @@ end
 ; monitor for whether distancing currently applied
 to-report policy-status
   report ifelse-value triggered? ["YES"] ["no"]
+end
+
+; vaccinates random people to get to level requested
+to vaccinate-level [#level]
+  let current-level count people with [vaccinated?] / count people
+  ifelse #level > current-level and #level <= 1
+  [ let num-targets (#level - current-level) * count people
+    ask n-of num-targets people with [not vaccinated?]
+    [ set vaccinated? true
+    ]
+  ]
+  [ print "Vaccination did not occur, no increase in proportion" ]
 end
 
 ;----- DISTRIBUTION DRAWS for ticks to next status change
@@ -853,7 +872,7 @@ transmission-parameter
 transmission-parameter
 0
 0.15
-0.03
+0.04
 0.005
 1
 NIL
@@ -1158,6 +1177,68 @@ isolation-efficacy
 NIL
 HORIZONTAL
 
+SLIDER
+530
+667
+740
+700
+vaccinate-to-level
+vaccinate-to-level
+0
+1
+0.0
+0.01
+1
+NIL
+HORIZONTAL
+
+SLIDER
+530
+700
+740
+733
+vaccine-efficacy-S
+vaccine-efficacy-S
+0
+1
+0.7
+0.05
+1
+NIL
+HORIZONTAL
+
+SLIDER
+530
+733
+740
+766
+vaccine-efficacy-I
+vaccine-efficacy-I
+0
+1
+0.3
+0.05
+1
+NIL
+HORIZONTAL
+
+BUTTON
+740
+667
+855
+766
+Vaccinate
+vaccinate-level vaccinate-to-level
+NIL
+1
+T
+OBSERVER
+NIL
+NIL
+NIL
+NIL
+1
+
 TEXTBOX
 875
 15
@@ -1359,7 +1440,7 @@ INPUTBOX
 1115
 468
 trigger-level
-200.0
+250.0
 1
 0
 Number
@@ -1589,7 +1670,7 @@ INPUTBOX
 1365
 926
 ScenarioNum
-8.82891943E8
+2.074359346E9
 1
 0
 Number
@@ -1629,9 +1710,9 @@ SLIDER
 prob-InfDeath
 prob-InfDeath
 0
-0.05
-0.015
-0.0025
+0.02
+0.0085
+0.0005
 1
 NIL
 HORIZONTAL
@@ -1645,7 +1726,7 @@ prob-InfHosp
 prob-InfHosp
 0
 0.25
-0.07
+0.05
 0.005
 1
 NIL
@@ -1660,7 +1741,7 @@ prob-HospDeath
 prob-HospDeath
 0
 1
-0.3
+0.28
 0.01
 1
 NIL
@@ -1675,7 +1756,7 @@ prob-HospCrit
 prob-HospCrit
 0
 1
-0.17
+0.09
 0.01
 1
 NIL
@@ -1959,7 +2040,7 @@ CHOOSER
 1114
 scenario-selector
 scenario-selector
-"off" "unmitigated" "9w45" "9w45shield" "SelfQuarantine" "InformOnly" "9w45sqInform" "atJul13" "Hull#4" "localLockdown" "localHotspot" "adhoc"
+"off" "unmitigated" "atJul13" "adhoc"
 0
 
 CHOOSER
@@ -1978,7 +2059,7 @@ BUTTON
 947
 1217
 Set to Null
-interventions-off\napply-defaults\nset death-no-bed 0.8\nset distancing-reduction 0.25\nset HR-shield-duration 15\nset trigger-type \"cases\"\nset trigger-level 200\nset intervention-duration 12\nset isolation-efficacy 0.9\nset mild-asymptomatic 0.45\nset SI-isolation-duration 14\nset found-and-isolate 0.4\nset IC-isolation-duration 14\nset when-symptoms-if-I 1\nset max-presymptomatic 3\nset use-age-mixing? false\nset scenario-selector \"off\"\nset region-selector \"off\"\nset randomise? true
+interventions-off\napply-defaults\nset death-no-bed 0.8\nset distancing-reduction 0.25\nset HR-shield-duration 15\nset trigger-type \"cases\"\nset trigger-level 250\nset intervention-duration 12\nset isolation-efficacy 0.9\nset mild-asymptomatic 0.45\nset SI-isolation-duration 14\nset found-and-isolate 0.4\nset IC-isolation-duration 14\nset when-symptoms-if-I 1\nset max-presymptomatic 3\nset use-age-mixing? false\nset scenario-selector \"off\"\nset region-selector \"off\"\nset randomise? true
 NIL
 1
 T
@@ -1994,7 +2075,7 @@ NIL
 
 In the absence of a vaccine or effective treatment, the only way to manage a communicable disease epidemic is to interrupt transmission from infectious people to susceptible people. This involves controlling the ways in which people mix (such as isolating those potentially exposed) and reducing the potential for transmission where they do mix (such as promoting good hand hygiene). This model is intended to help understand the potential impact of combinations of these non-pharmaceutical interventions over time, and the uncertainties associated with estimates of the impact. Full documentation is available as a separate user manual (with example scenarios) and technical reference.
 
-Two processes are represented in the model: transmission and disease progression. These interact through an extended person to person SEIR epidemic model. The disease spreads directly from infectious people to susceptible people, excluding indirect real-world paths such as virus survival on hard surfaces.People start in the susceptible (S) state, change to the exposed state (E) if they come in contact with an infectious person, become infectious (I) some time after they are exposed, and eventually recover (R) and become immune or die. While infectious, they may also require hospital care.
+Two processes are represented in the model: transmission and disease progression. These interact through an extended person to person SEIR epidemic model. The disease spreads directly from infectious people to susceptible people, excluding indirect real-world paths such as virus survival on hard surfaces. People start in the susceptible (S) state, change to the exposed state (E) if they come in contact with an infectious person, become infectious (I) some time after they are exposed, and eventually recover (R) and become immune or die. While infectious, they may also require hospital care.
 
 The model starts with 12 people (turtles in NetLogo terminology) on each patch (a cell in the spatial grid). One person starts in the exposed state, and all others are susceptible. Without interventions, each tick (time step, representing one day), any infectious person interacts with all the susceptible people on their patch and, with independent random draws, has the opportunity to expose each of them. To allow the epidemic to spread spatially, some people also move each tick. Short movements are one unit of distance in a random direction, which is likely but not always moving them to a different patch. Long movements are three units of distance.
 
@@ -2021,6 +2102,10 @@ Finally, the movement scenario changes only the proportion of people moving (sho
 ## Responses to symptoms
 
 There are two broad actions that people in the model can take when they become symptomatic. They can isolate themself, and the can inform their contacts so that those contacts have the opportunity to isolate. Whether these actions occur is set by a switch that can be moved between Off and On throughout the epidemic simulation.
+
+## Vaccination
+
+Vaccination lowers the probability of a susceptible person becoming exposed, but also reduces their probability of transmitting it to others if they do become infectious. These reductions in probability are controlled with separate slides. Press the Vaccinate button to increase the proportion of the population vaccinated to the level specified in the vaccinate-to-level slider.
 
 ## Interpreting the Output
 
@@ -2354,6 +2439,120 @@ NetLogo 6.1.1
 @#$#@#$#@
 @#$#@#$#@
 @#$#@#$#@
+<experiments>
+  <experiment name="Paper 1 UK now" repetitions="1000" sequentialRunOrder="false" runMetricsEveryStep="true">
+    <setup>apply-defaults
+setup</setup>
+    <go>go</go>
+    <metric>ScenarioNum</metric>
+    <metric>scenario-selector</metric>
+    <metric>trigger-type</metric>
+    <metric>trigger-level</metric>
+    <metric>distancing-option</metric>
+    <metric>distancing-reduction</metric>
+    <metric>high-risk-shielding?</metric>
+    <metric>HR-shield-duration</metric>
+    <metric>when-triggered</metric>
+    <metric>new-I</metric>
+    <metric>admissions-hospital</metric>
+    <metric>admissions-critical</metric>
+    <metric>new-D</metric>
+    <metric>impact</metric>
+    <metric>prevalence-all</metric>
+    <metric>prevalence-I</metric>
+    <metric>incidence</metric>
+    <metric>count people with [epi-status = "susceptible"]</metric>
+    <metric>count people with [epi-status = "exposed"]</metric>
+    <metric>count people with [epi-status = "infectious"]</metric>
+    <metric>count people with [epi-status = "hospital"]</metric>
+    <metric>count people with [epi-status = "critical"]</metric>
+    <metric>count people with [epi-status = "immune"]</metric>
+    <metric>count people with [epi-status = "dead"]</metric>
+    <enumeratedValueSet variable="scenario-selector">
+      <value value="&quot;atJul13&quot;"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="region-selector">
+      <value value="&quot;UK cases&quot;"/>
+    </enumeratedValueSet>
+  </experiment>
+  <experiment name="Local Lockdown" repetitions="100" sequentialRunOrder="false" runMetricsEveryStep="true">
+    <setup>apply-defaults
+setup</setup>
+    <go>go</go>
+    <timeLimit steps="500"/>
+    <metric>ScenarioNum</metric>
+    <metric>scenario-selector</metric>
+    <metric>trigger-type</metric>
+    <metric>trigger-level</metric>
+    <metric>distancing-option</metric>
+    <metric>distancing-reduction</metric>
+    <metric>high-risk-shielding?</metric>
+    <metric>HR-shield-duration</metric>
+    <metric>when-triggered</metric>
+    <metric>found-and-isolate</metric>
+    <metric>new-I</metric>
+    <metric>admissions-hospital</metric>
+    <metric>admissions-critical</metric>
+    <metric>new-D</metric>
+    <metric>impact</metric>
+    <metric>prevalence-all</metric>
+    <metric>prevalence-I</metric>
+    <metric>incidence</metric>
+    <metric>count people with [epi-status = "susceptible"]</metric>
+    <metric>count people with [epi-status = "exposed"]</metric>
+    <metric>count people with [epi-status = "infectious"]</metric>
+    <metric>count people with [epi-status = "hospital"]</metric>
+    <metric>count people with [epi-status = "critical"]</metric>
+    <metric>count people with [epi-status = "immune"]</metric>
+    <metric>count people with [epi-status = "dead"]</metric>
+    <enumeratedValueSet variable="scenario-selector">
+      <value value="&quot;localLockdown&quot;"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="region-selector">
+      <value value="&quot;UK cases&quot;"/>
+    </enumeratedValueSet>
+  </experiment>
+  <experiment name="LRF regular" repetitions="2000" sequentialRunOrder="false" runMetricsEveryStep="true">
+    <setup>apply-defaults
+setup</setup>
+    <go>go</go>
+    <timeLimit steps="500"/>
+    <metric>ScenarioNum</metric>
+    <metric>scenario-selector</metric>
+    <metric>trigger-type</metric>
+    <metric>trigger-level</metric>
+    <metric>distancing-option</metric>
+    <metric>distancing-reduction</metric>
+    <metric>high-risk-shielding?</metric>
+    <metric>HR-shield-duration</metric>
+    <metric>when-triggered</metric>
+    <metric>isolate-inform?</metric>
+    <metric>self-isolators</metric>
+    <metric>informers</metric>
+    <metric>found-and-isolate</metric>
+    <metric>new-I</metric>
+    <metric>admissions-hospital</metric>
+    <metric>admissions-critical</metric>
+    <metric>new-D</metric>
+    <metric>impact</metric>
+    <metric>prevalence-all</metric>
+    <metric>prevalence-I</metric>
+    <metric>incidence</metric>
+    <metric>count people with [epi-status = "susceptible"]</metric>
+    <metric>count people with [epi-status = "exposed"]</metric>
+    <metric>count people with [epi-status = "infectious"]</metric>
+    <metric>count people with [epi-status = "hospital"]</metric>
+    <metric>count people with [epi-status = "critical"]</metric>
+    <metric>count people with [epi-status = "immune"]</metric>
+    <metric>count people with [epi-status = "dead"]</metric>
+    <enumeratedValueSet variable="scenario-selector">
+      <value value="&quot;ongoingLRF&quot;"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="region-selector">
+      <value value="&quot;UK cases&quot;"/>
+    </enumeratedValueSet>
+  </experiment>
+</experiments>
 @#$#@#$#@
 @#$#@#$#@
 default
